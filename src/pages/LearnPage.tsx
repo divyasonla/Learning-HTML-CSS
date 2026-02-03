@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, BookOpen, Code, CheckCircle } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProgress } from '@/contexts/ProgressContext';
 import { getTopicById, allTopics } from '@/data/topicStructure';
+import { getGeminiTopicDetails } from '@/services/gemini';
 import LiveCodeEditor from '@/components/LiveCodeEditor';
 import TopicQuiz from '@/components/TopicQuiz';
 import AIChatbot from '@/components/AIChatbot';
@@ -17,6 +18,18 @@ const LearnPage = () => {
   const [activeTab, setActiveTab] = useState('learn');
   
   const topic = getTopicById(topicId || '');
+  const [aiDetails, setAiDetails] = useState<string>('');
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // Fetch AI details when topic changes
+  useEffect(() => {
+    if (!topic) return;
+    setLoadingDetails(true);
+    getGeminiTopicDetails(topic.name)
+      .then((text) => setAiDetails(text))
+      .catch(() => setAiDetails('AI se details laane me error aayi.'))
+      .finally(() => setLoadingDetails(false));
+  }, [topicId]);
   
   if (!topic) {
     return (
@@ -218,13 +231,93 @@ h1 {
             >
               <div className="card-playful p-8 mb-6">
                 <h2 className="text-2xl font-bold mb-4">What is {topic.name}?</h2>
-                <p className="text-muted-foreground mb-6">
-                  In this lesson, you'll learn about {topic.name.toLowerCase()} in {topic.category.toUpperCase()}. 
-                  This topic covers: {topic.subtopics.join(', ')}.
-                </p>
-                
-                <h3 className="text-xl font-semibold mb-3">Key Concepts</h3>
+                {/* AI Details Section */}
+                <div className="mb-6">
+                  {loadingDetails ? (
+                    <div className="text-muted-foreground">
+                      <span role="img" aria-label="thinking">🤔</span> AI soch raha hai...<br/>
+                      <b>5 mins for thinking</b> <br/>
+                      Please wait while we fetch the best details for you!
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground whitespace-pre-line">
+                      {(() => {
+                        // Split lines and only show the first half (rounded up)
+                        const lines = aiDetails.split('\n');
+                        const maxLines = Math.ceil(lines.length / 2);
+                        let exampleCount = 0;
+                        let insideExample = false;
+                        return lines.slice(0, maxLines).map((line, idx) => {
+                          // Replace **bold** with <b>...</b> for better UI rendering
+                          let processedLine = line.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
 
+                          // Heading: Markdown style (##, ###, etc.) or all caps
+                          if (/^#+\s/.test(processedLine)) {
+                            return <div key={idx} className="text-xl font-bold mt-4 mb-2">{processedLine.replace(/^#+\s/, '')}</div>;
+                          }
+                          if (/^Example:/i.test(processedLine)) {
+                            if (exampleCount >= 2) return null;
+                            exampleCount++;
+                            insideExample = true;
+                            // Use <b> for bold example
+                            return <div key={idx} className="font-bold mt-2"><b>{processedLine}</b></div>;
+                          }
+                          // HTML code block (```html ... ```)
+                          if (processedLine.trim().startsWith('```html')) {
+                            if (exampleCount > 2) return null;
+                            // Start of HTML code block
+                            const codeLines = [];
+                            let i = idx + 1;
+                            while (i < lines.length && !lines[i].startsWith('```')) {
+                              codeLines.push(lines[i]);
+                              i++;
+                            }
+                            return (
+                              <pre key={idx} className="bg-green-100 text-green-700 rounded p-2 my-2 overflow-x-auto">
+                                <code>{codeLines.join('\n')}</code>
+                              </pre>
+                            );
+                          }
+                          // CSS code block (```css ... ```)
+                          if (processedLine.trim().startsWith('```css')) {
+                            if (exampleCount > 2) return null;
+                            // Start of CSS code block
+                            const codeLines = [];
+                            let i = idx + 1;
+                            while (i < lines.length && !lines[i].startsWith('```')) {
+                              codeLines.push(lines[i]);
+                              i++;
+                            }
+                            return (
+                              <pre key={idx} className="bg-blue-100 text-blue-700 rounded p-2 my-2 overflow-x-auto">
+                                <code>{codeLines.join('\n')}</code>
+                              </pre>
+                            );
+                          }
+                          // Inline <html> or <body> code (for single-line code)
+                          if ((processedLine.trim().startsWith('<') && processedLine.trim().endsWith('>')) || /<\/?[a-zA-Z]+.*>/.test(processedLine)) {
+                            if (insideExample && exampleCount > 2) return null;
+                            return <code key={idx} className="text-green-700 bg-green-100 rounded px-1">{processedLine}</code>;
+                          }
+                          // Inline CSS code (e.g., body { ... })
+                          if (/^[a-zA-Z0-9\.#\[\]:_-]+\s*\{[^}]*\}$/.test(processedLine.trim())) {
+                            return <code key={idx} className="text-blue-700 bg-blue-100 rounded px-1">{processedLine}</code>;
+                          }
+                          // Old style: treat lines in ALL CAPS as headings
+                          if (processedLine.trim() && processedLine === processedLine.toUpperCase() && /[A-Z]/.test(processedLine)) {
+                            return <div key={idx} className="text-xl font-bold mt-4 mb-2">{processedLine}</div>;
+                          }
+                          insideExample = false;
+                          // Render with dangerouslySetInnerHTML to support <b>
+                          return <div key={idx} dangerouslySetInnerHTML={{ __html: processedLine }} />;
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
+                {/* Old manual data (commented for reference) */}
+                {/*
+                <h3 className="text-xl font-semibold mb-3">Key Concepts</h3>
                 {topic.content?.keyConcepts && topic.content.keyConcepts.length > 0 ? (
                   <div className="space-y-6 mb-6">
                     {topic.content.keyConcepts.map((concept, i) => (
@@ -235,7 +328,6 @@ h1 {
                             <span className="font-semibold">{concept.title}:</span> {concept.explanation}
                           </span>
                         </div>
-                        {/* Show example for this key concept if available */}
                         {topic.content.examples && topic.content.examples[i] && (
                           <div className="bg-muted/30 rounded-lg p-4 mt-2">
                             <div className="font-semibold mb-1">Example: {topic.content.examples[i].title}</div>
@@ -259,7 +351,6 @@ h1 {
                     ))}
                   </ul>
                 )}
-
                 {topic.content?.proTip && (
                   <div className="bg-muted/50 rounded-lg p-4 border">
                     <h4 className="font-semibold mb-2">💡 Pro Tip</h4>
@@ -268,6 +359,7 @@ h1 {
                     </p>
                   </div>
                 )}
+                */}
               </div>
 
               {/* Live Code Editor in Learn Tab */}
@@ -354,36 +446,7 @@ h1 {
           )}
         </div>
       </main>
-      {/* Floating AI Chatbot Button */}
-      {/* <button
-        onClick={() => setShowChatbot(true)}
-        className="fixed bottom-8 right-8 z-50 bg-primary text-white rounded-full shadow-lg p-4 flex items-center gap-2 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary"
-        aria-label="Open AI Chatbot"
-      >
-        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle"><circle cx="12" cy="12" r="10"/><path d="m8 12 2 2 4-4"/></svg>
-        <span className="hidden md:inline font-semibold">Ask AI</span>
-      </button>
-
-      {showChatbot && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-xl shadow-2xl w-full max-w-md mx-auto relative flex flex-col max-h-[90vh]">
-            <button
-              onClick={() => setShowChatbot(false)}
-              className="absolute top-3 right-3 text-muted-foreground hover:text-primary"
-              aria-label="Close AI Chatbot"
-            >
-              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-            <div className="p-4 border-b font-bold text-lg flex items-center gap-2">
-              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bot"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M9 16h6"/></svg>
-              Ask AI Chatbot
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              <AIChatbot />
-            </div>
-          </div>
-        </div>
-      )} */}
+      
       <aside>
         <div className="flex-1 overflow-y-auto p-4">
               <AIChatbot />
