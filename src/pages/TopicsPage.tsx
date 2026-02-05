@@ -1,35 +1,45 @@
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Code, Palette, ArrowLeft, Lock, CheckCircle } from 'lucide-react';
+import { Code, Palette, ArrowLeft, Lock, CheckCircle, Layers3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProgress } from '@/contexts/ProgressContext';
-import { htmlTopics, cssTopics } from '@/data/topicStructure';
+import { htmlTopics, cssTopics, allTopics } from '@/data/topicStructure';
 
 const TopicsPage = () => {
-  const { category } = useParams<{ category: 'html' | 'css' }>();
+  const { category } = useParams<{ category: 'html' | 'css' | 'all' }>();
   const { progress } = useProgress();
-  
-  const topics = category === 'html' ? htmlTopics : cssTopics;
-  const isHtml = category === 'html';
-  
-  const categoryConfig = {
-    html: {
-      title: 'HTML Topics',
-      icon: Code,
-      gradient: 'gradient-html',
-      color: 'text-html',
-      bgColor: 'bg-html/10',
-    },
-    css: {
+
+  let topics = htmlTopics;
+  let isHtml = true;
+  let config = {
+    title: 'HTML Topics',
+    icon: Code,
+    gradient: 'gradient-html',
+    color: 'text-html',
+    bgColor: 'bg-html/10',
+  };
+
+  if (category === 'css') {
+    topics = cssTopics;
+    isHtml = false;
+    config = {
       title: 'CSS Topics',
       icon: Palette,
       gradient: 'gradient-css',
       color: 'text-css',
       bgColor: 'bg-css/10',
-    },
-  };
-  
-  const config = categoryConfig[category || 'html'];
+    };
+  } else if (category === 'all') {
+    topics = allTopics;
+    isHtml = false;
+    config = {
+      title: 'All Topics',
+      icon: Layers3,
+      gradient: 'from-pink-500 via-orange-400 to-blue-500 bg-gradient-to-tr',
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+    };
+  }
   const Icon = config.icon;
 
   return (
@@ -56,15 +66,18 @@ const TopicsPage = () => {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6"
         >
           <p className="text-muted-foreground">
-            {topics.length} topics • {isHtml ? progress.htmlProgress : progress.cssProgress}% complete
+            {topics.length} topics
+            {category === 'all'
+              ? ''
+              : ` • ${isHtml ? progress.htmlProgress : progress.cssProgress}% complete`}
           </p>
         </motion.div>
 
-        {/* Topics Grid */}
-        <div className="grid gap-4">
+        {/* Responsive Topics Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[70vh] overflow-y-auto pr-1 custom-scrollbar">
           {topics.map((topic, index) => {
             const topicProgress = progress.topicProgress[topic.id];
             const isLocked = topicProgress?.status === 'locked';
@@ -74,22 +87,22 @@ const TopicsPage = () => {
             return (
               <motion.div
                 key={topic.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
               >
                 <Link 
                   to={isLocked ? '#' : `/learn/${topic.id}`}
                   className={`block ${isLocked ? 'cursor-not-allowed' : ''}`}
                 >
                   <div 
-                    className={`card-playful p-5 flex items-center gap-4 transition-all ${
-                      isLocked ? 'opacity-50' : 'hover:scale-[1.02]'
+                    className={`card-playful p-4 flex flex-col items-center gap-2 transition-all ${
+                      isLocked ? 'opacity-50' : 'hover:scale-[1.03]'
                     }`}
                   >
                     {/* Topic Icon */}
                     <div 
-                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                      className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 mb-1"
                       style={{ backgroundColor: `${topic.color}20` }}
                     >
                       {isCompleted ? (
@@ -102,33 +115,32 @@ const TopicsPage = () => {
                     </div>
 
                     {/* Topic Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-lg truncate">{topic.name}</h3>
-                        <span 
-                          className="px-2 py-0.5 rounded-full text-xs font-medium capitalize"
-                          style={{ 
-                            backgroundColor: `${topic.color}20`,
-                            color: topic.color 
-                          }}
-                        >
-                          {topic.level}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {topic.subtopics.join(' • ')}
+                    <div className="w-full min-w-0 text-center">
+                      <h3 className="font-semibold text-base truncate mb-1">{topic.name}</h3>
+                      <span 
+                        className="px-2 py-0.5 rounded-full text-xs font-medium capitalize mb-1"
+                        style={{ 
+                          backgroundColor: `${topic.color}20`,
+                          color: topic.color 
+                        }}
+                      >
+                        {topic.level}
+                      </span>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {topic.subtopics.slice(0, 3).join(' • ')}
+                        {topic.subtopics.length > 3 && ' ...'}
                       </p>
                     </div>
 
                     {/* Status Badge */}
-                    <div className="shrink-0">
+                    <div className="mt-1">
                       {isCompleted && (
-                        <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium dark:bg-green-900/30 dark:text-green-400">
+                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium dark:bg-green-900/30 dark:text-green-400">
                           Completed
                         </span>
                       )}
                       {isUnlocked && !isCompleted && (
-                        <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
                           Start
                         </span>
                       )}

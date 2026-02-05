@@ -19,7 +19,9 @@ export async function getGeminiTopicDetails(topic: string): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   const body = {
     contents: [{
-      parts: [{ text: `Explain the topic "${topic}" in detail for a beginner learning web development.` }]
+      parts: [{
+        text: `Explain the topic "${topic}" for a complete beginner student.\n\nInclude:\n1. What is it? (simple definition)\n2. Why it is used?\n3. Where it is used in real projects?\n4. Basic syntax or structure (if coding topic)\n5. 2–3 simple examples\n6. Important points a student must remember\n\nUse very simple language.\nKeep it short and clear.\nFocus on practical learning.\nExplain as if teaching HTML/CSS to a first-time learner.\nAvoid long theory.`
+      }]
     }]
   };
 

@@ -14,8 +14,15 @@ interface Message {
   content: string;
 }
 
-const AIChatbot = () => {
-  const [isOpen, setIsOpen] = useState(false);
+interface AIChatbotProps {
+  isOpen?: boolean;
+  setIsOpen?: (open: boolean) => void;
+}
+
+const AIChatbot = ({ isOpen: isOpenProp, setIsOpen: setIsOpenProp }: AIChatbotProps) => {
+  const [isOpenState, setIsOpenState] = useState(false);
+  const isOpen = typeof isOpenProp === 'boolean' ? isOpenProp : isOpenState;
+  const setIsOpen = setIsOpenProp || setIsOpenState;
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -254,7 +261,8 @@ const AIChatbot = () => {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] h-[500px] max-h-[calc(100vh-6rem)] bg-background border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-2 right-2 z-50 bg-background border rounded-2xl shadow-2xl flex flex-col overflow-hidden resize"
+            style={{ minWidth: 340, minHeight: 340, width: 520, height: 'calc(100vh - 1rem)', maxWidth: 'calc(100vw - 1rem)', maxHeight: 'calc(100vh - 1rem)', resize: 'both' }}
           >
             {/* Header */}
             <div className="p-4 border-b bg-card flex items-center justify-between">
@@ -290,44 +298,47 @@ const AIChatbot = () => {
                 {messages.map(message => (
                   <div
                     key={message.id}
-                    className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+                    className={`flex w-full mb-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      }`}
-                    >
-                      {message.role === 'user' ? (
-                        <User className="w-4 h-4" />
-                      ) : (
-                        <Bot className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-none'
-                          : 'bg-muted rounded-tl-none'
-                      }`}
-                    >
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
-                      </div>
-                      {/* Speak button for assistant messages */}
-                      {message.role === 'assistant' && message.content && speechSupport.speech && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-1 h-6 px-2 text-xs"
-                          onClick={() => isSpeaking ? stopSpeaking() : speakText(message.content)}
+                    {/* AI message: avatar on left, bubble left-aligned */}
+                    {message.role === 'assistant' && (
+                      <>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-muted mr-2 mt-auto">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                        <div
+                          className="max-w-[70%] bg-muted rounded-2xl rounded-tl-none px-4 py-2 text-left break-words whitespace-pre-wrap shadow"
+                          style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
                         >
-                          {isSpeaking ? <VolumeX className="w-3 h-3 mr-1" /> : <Volume2 className="w-3 h-3 mr-1" />}
-                          {isSpeaking ? 'Stop' : 'Listen'}
-                        </Button>
-                      )}
-                    </div>
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          </div>
+                          {/* Speak button for assistant messages */}
+                          {message.content && speechSupport.speech && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mt-1 h-6 px-2 text-xs"
+                              onClick={() => isSpeaking ? stopSpeaking() : speakText(message.content)}
+                            >
+                              {isSpeaking ? <VolumeX className="w-3 h-3 mr-1" /> : <Volume2 className="w-3 h-3 mr-1" />}
+                              {isSpeaking ? 'Stop' : 'Listen'}
+                            </Button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    {/* User message: bubble right-aligned, no avatar */}
+                    {message.role === 'user' && (
+                      <div
+                        className="max-w-[70%] bg-primary text-primary-foreground rounded-2xl rounded-tr-none px-4 py-2 text-right ml-auto break-words whitespace-pre-wrap shadow"
+                        style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
+                      >
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {isLoading && messages[messages.length - 1]?.role === 'user' && (
